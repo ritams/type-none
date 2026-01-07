@@ -1,10 +1,16 @@
 import SwiftUI
 import AppKit
 
+/// Custom window that doesn't steal focus
+class FloatingPanel: NSWindow {
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+}
+
 /// Controller for the floating overlay window
 @MainActor
 class OverlayWindowController {
-    private var window: NSWindow?
+    private var window: FloatingPanel?
     private var hostingController: NSHostingController<OverlayContentView>?
     
     init() {
@@ -16,10 +22,9 @@ class OverlayWindowController {
         hostingController = NSHostingController(rootView: contentView)
         
         // Create borderless, floating window
-        // Wider frame for the waveform
-        window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 100),
-            styleMask: [.borderless],
+        window = FloatingPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 60), // Smaller size
+            styleMask: [.borderless, .nonactivatingPanel], // Non-activating
             backing: .buffered,
             defer: false
         )
@@ -31,9 +36,10 @@ class OverlayWindowController {
         window.isOpaque = false
         window.backgroundColor = .clear
         window.level = .floating
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
         window.isMovableByWindowBackground = true
-        window.hasShadow = false // Remove shadow for isolated look
+        window.hasShadow = false
+        window.ignoresMouseEvents = true // Pass interactions through
         
         // Position at bottom center of screen
         positionWindow()
@@ -46,7 +52,7 @@ class OverlayWindowController {
         let windowSize = window.frame.size
         
         let x = screenFrame.midX - windowSize.width / 2
-        let y = screenFrame.minY + 150 // Slightly higher up
+        let y = screenFrame.minY + 120
         
         window.setFrameOrigin(NSPoint(x: x, y: y))
     }
@@ -56,11 +62,11 @@ class OverlayWindowController {
         
         positionWindow()
         window.alphaValue = 0
-        window.makeKeyAndOrderFront(nil)
+        window.orderFront(nil) // Don't make key!
         
         // Fade in
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
+            context.duration = 0.15
             window.animator().alphaValue = 1.0
         }
     }
@@ -71,7 +77,7 @@ class OverlayWindowController {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             // Fade out
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.2
+                context.duration = 0.15
                 window.animator().alphaValue = 0
             } completionHandler: {
                 Task { @MainActor in
@@ -95,33 +101,58 @@ struct OverlayContentView: View {
     var body: some View {
         HStack(spacing: 0) {
             if appState.isRecording {
-                // Isolated Minimal Waveform
-                WaveformView(level: appState.audioLevel, barCount: 30)
-                    .frame(height: 50)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 10)
-                    .background(Color.black.opacity(0.7)) // Minimal dark background for contrast
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule()
-                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                    )
+                // Extremely Minimal Waveform
+                WaveformView(level: appState.audioLevel, barCount: 20)
+                    .frame(height: 32) // Smaller height
             } else if !appState.modelLoaded {
-                 // Minimal loading pill
-                 HStack(spacing: 8) {
-                     ProgressView()
-                         .controlSize(.small)
-                         .colorScheme(.dark)
-                     Text("Loading...")
-                         .font(.caption)
-                         .foregroundStyle(.white.opacity(0.8))
-                 }
-                 .padding(.horizontal, 16)
-                 .padding(.vertical, 8)
-                 .background(Color.black.opacity(0.7))
-                 .clipShape(Capsule())
+                 // Minimal loading dot
+                 Circle()
+                    .fill(Color.white.opacity(0.5))
+                    .frame(width: 8, height: 8)
+                    .modifier(PulseModifier())
             }
         }
-        .frame(width: 600, height: 100)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        // No background at all, just content
+        .frame(width: 300, height: 60)
+    }
+}
+
+/// Pulsing animation modifier for recording indicator
+struct PulseModifier: ViewModifier {
+    @State private var isPulsing = false
+    
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isPulsing ? 1.2 : 1.0)
+            .opacity(isPulsing ? 0.7 : 1.0)
+            .animation(
+                Animation.easeInOut(duration: 0.6)
+                    .repeatForever(autoreverses: true),
+                value: isPulsing
+            )
+            .onAppear {
+                isPulsing = true
+            }
+    }
+}
+
+/// Visual effect blur for the overlay background
+struct VisualEffectBlur: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+    
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        return view
+    }
+    
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
     }
 }

@@ -22,25 +22,49 @@ class ClipboardService {
     
     /// Simulate paste action (Cmd+V) in the active application
     func pasteToActiveApp() {
-        // Small delay to ensure clipboard is ready
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        // 1. Hide our app explicitly to return focus to previous app
+        DispatchQueue.main.async {
+            NSApp.hide(nil)
+        }
+        
+        // 2. Wait a bit for focus to settle, then paste
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             self.simulatePaste()
         }
     }
     
-    /// Simulate Cmd+V keystroke
+    /// Simulate Cmd+V keystroke using AppleScript (More robust)
     private func simulatePaste() {
-        // Create key down event for Cmd+V
-        let source = CGEventSource(stateID: .hidSystemState)
+        let scriptSource = """
+        tell application "System Events"
+            keystroke "v" using command down
+        end tell
+        """
         
-        // V key code is 9
-        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: true)
+        if let script = NSAppleScript(source: scriptSource) {
+            var error: NSDictionary?
+            script.executeAndReturnError(&error)
+            if let error = error {
+                print("AppleScript paste error: \(error)")
+                // Fallback to CGEvent if AppleScript fails
+                simulatePasteCGEvent()
+            }
+        } else {
+            simulatePasteCGEvent()
+        }
+    }
+    
+    /// Fallback: Simulate Cmd+V using CGEvent
+    private func simulatePasteCGEvent() {
+        let source = CGEventSource(stateID: .hidSystemState)
+        let vKeyCode = CGKeyCode(9) // kVK_ANSI_V
+        
+        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: true)
         keyDown?.flags = .maskCommand
         
-        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: false)
+        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: false)
         keyUp?.flags = .maskCommand
         
-        // Post the events
         keyDown?.post(tap: .cghidEventTap)
         keyUp?.post(tap: .cghidEventTap)
     }

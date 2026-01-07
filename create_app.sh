@@ -56,12 +56,18 @@ cat > "${CONTENTS_DIR}/Info.plist" << EOF
     <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>Type None needs microphone access to listen to your voice for transcription.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Type None needs to control System Events to paste text into other applications.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>
 </plist>
 EOF
 
-# 5. Clean up
+# 6. Ad-hoc sign the app
+echo "🔏 Ad-hoc signing..."
+codesign -s - --deep --force "${APP_BUNDLE}"
+
+# 7. Clean up
 echo "✅ ${APP_NAME}.app created successfully!"
 echo "To run: open ${APP_NAME}.app"

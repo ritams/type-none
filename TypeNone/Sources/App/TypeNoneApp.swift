@@ -5,12 +5,20 @@ import SwiftUI
 struct TypeNoneApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var appState = AppState.shared
+    @State private var showingPermissionAlert = false
+    
+    init() {
+        // Permission check handled in onAppear
+    }
     
     var body: some Scene {
         // Menu bar presence
         MenuBarExtra {
             MenuBarView()
                 .environmentObject(appState)
+                .onAppear {
+                    checkPermissions()
+                }
         } label: {
             Image(systemName: appState.isRecording ? "waveform.circle.fill" : "waveform.circle")
                 .symbolRenderingMode(.hierarchical)
@@ -22,6 +30,27 @@ struct TypeNoneApp: App {
         Settings {
             SettingsView()
                 .environmentObject(appState)
+                .alert("Permission Required", isPresented: $showingPermissionAlert) {
+                    Button("Open System Settings") {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                    Button("Cancel", role: .cancel) { }
+                } message: {
+                    Text("Type None needs Accessibility permissions to paste text into other applications. Please grant access in System Settings.")
+                }
+        }
+    }
+    
+    private func checkPermissions() {
+        if !ClipboardService.shared.checkAccessibilityPermission() {
+            // Slight delay and check again
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                if !ClipboardService.shared.checkAccessibilityPermission() {
+                     showingPermissionAlert = true
+                }
+            }
         }
     }
 }

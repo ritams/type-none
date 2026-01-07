@@ -20,6 +20,8 @@
     <true/>
     <key>NSMicrophoneUsageDescription</key>
     <string>Type None needs microphone access to listen to your voice for transcription.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Type None needs to control System Events to paste text into other applications.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>
