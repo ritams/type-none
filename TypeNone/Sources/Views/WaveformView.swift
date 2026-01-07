@@ -3,13 +3,13 @@ import SwiftUI
 /// Audio waveform visualization view
 struct WaveformView: View {
     let level: Float
-    let barCount: Int = 12
+    var barCount: Int = 12
     
     @State private var animatedLevels: [Float] = []
     
     var body: some View {
         GeometryReader { geometry in
-            HStack(spacing: 2) {
+            HStack(spacing: 4) { // Increased spacing
                 ForEach(0..<barCount, id: \.self) { index in
                     WaveformBar(
                         height: barHeight(for: index, in: geometry.size.height),
@@ -17,6 +17,8 @@ struct WaveformView: View {
                     )
                 }
             }
+            // Center the bars horizontally
+            .frame(width: geometry.size.width, alignment: .center)
         }
         .onChange(of: level) { _, newLevel in
             updateLevels(newLevel)
@@ -59,61 +61,9 @@ struct WaveformBar: View {
     
     var body: some View {
         RoundedRectangle(cornerRadius: 2)
-            .fill(barGradient)
+            .fill(Color.white) // Pure white for high contrast on dark background
             .frame(width: 4, height: height)
             .frame(height: maxHeight, alignment: .center)
-    }
-    
-    private var barGradient: LinearGradient {
-        LinearGradient(
-            colors: [.blue, .cyan],
-            startPoint: .bottom,
-            endPoint: .top
-        )
-    }
-}
-
-/// Alternative: Circular waveform visualization
-struct CircularWaveformView: View {
-    let level: Float
-    
-    @State private var rotation: Double = 0
-    
-    var body: some View {
-        ZStack {
-            // Outer ring
-            Circle()
-                .stroke(
-                    AngularGradient(
-                        colors: [.blue.opacity(0.3), .cyan.opacity(0.6), .blue.opacity(0.3)],
-                        center: .center
-                    ),
-                    lineWidth: 3
-                )
-                .scaleEffect(1 + CGFloat(level) * 0.2)
-            
-            // Inner pulsing circle
-            Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [.blue.opacity(0.6), .clear],
-                        center: .center,
-                        startRadius: 0,
-                        endRadius: 20
-                    )
-                )
-                .scaleEffect(1 + CGFloat(level) * 0.5)
-            
-            // Microphone icon
-            Image(systemName: "mic.fill")
-                .font(.system(size: 14))
-                .foregroundStyle(.white)
-        }
-        .rotationEffect(.degrees(rotation))
-        .onAppear {
-            withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
-                rotation = 360
-            }
-        }
+            .shadow(color: .white.opacity(0.3), radius: 2, x: 0, y: 0) // Glow effect
     }
 }
