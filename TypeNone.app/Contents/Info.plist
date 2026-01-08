@@ -24,5 +24,7 @@
     <string>Type None needs to control System Events to paste text into other applications.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
 </dict>
 </plist>

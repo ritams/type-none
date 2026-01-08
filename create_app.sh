@@ -60,9 +60,15 @@ cat > "${CONTENTS_DIR}/Info.plist" << EOF
     <string>Type None needs to control System Events to paste text into other applications.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
 </dict>
 </plist>
 EOF
+
+# 5. Copy Icon
+echo "🎨 Copying app icon..."
+cp "TypeNone/Resources/AppIcon.icns" "${RESOURCES_DIR}/AppIcon.icns"
 
 # 6. Ad-hoc sign the app
 echo "🔏 Ad-hoc signing..."
