@@ -22,7 +22,10 @@ class AppState: ObservableObject {
     // MARK: - Model State
     @Published var modelLoaded: Bool = false
     @Published var modelLoadingProgress: Double = 0.0
-    @Published var selectedModel: WhisperModel = .largeTurbo
+    
+    // Simplified: Always use Medium model
+    let modelName = "ggml-medium.bin"
+    let modelUrl = URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin")!
     
     // MARK: - Settings
     @AppStorage("autoPasteEnabled") var autoPasteEnabled: Bool = true
@@ -85,29 +88,4 @@ struct TranscriptionResult: Identifiable {
     }
 }
 
-enum WhisperModel: String, CaseIterable, Identifiable {
-    case tiny = "tiny"
-    case small = "small"
-    case medium = "medium"
-    case largeTurbo = "large-v3-turbo"
-    
-    var id: String { rawValue }
-    
-    var displayName: String {
-        switch self {
-        case .tiny: return "Tiny (Fastest)"
-        case .small: return "Small (Fast)"
-        case .medium: return "Medium (Balanced)"
-        case .largeTurbo: return "Large Turbo (Best)"
-        }
-    }
-    
-    var description: String {
-        switch self {
-        case .tiny: return "~200MB, 27x real-time"
-        case .small: return "~500MB, 7x real-time"
-        case .medium: return "~1.5GB, 3-4x real-time"
-        case .largeTurbo: return "~2GB, 5-8x real-time"
-        }
-    }
-}
+

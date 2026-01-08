@@ -16,6 +16,14 @@ class AudioManager: NSObject {
     private let targetSampleRate: Double = 16000
     private let targetChannels: AVAudioChannelCount = 1
     
+    // Safety limit: 10 minutes max recording to prevent OOM
+    private let maxRecordingDuration: Double = 600 
+    private var maxSampleCount: Int {
+        Int(targetSampleRate * maxRecordingDuration)
+    }
+    // Serial queue for thread-safe audio data access
+    private let dataQueue = DispatchQueue(label: "com.typenone.audio.data")
+    
     override init() {
         super.init()
         setupAudioEngine()
@@ -126,17 +134,38 @@ class AudioManager: NSObject {
         isRecording = false
         
         // Convert recorded samples to Data
-        let audioData = convertSamplesToData(recordedData)
+        var audioData: Data?
+        dataQueue.sync {
+            if !recordedData.isEmpty {
+                audioData = convertSamplesToData(recordedData)
+            }
+        }
         completion(audioData)
     }
     
     /// Append audio buffer to recorded data
     private func appendBuffer(_ buffer: AVAudioPCMBuffer) {
+        // Safety check: Don't exceed max duration
+        guard recordedData.count < maxSampleCount else {
+            if recordedData.count == maxSampleCount {
+                print("Warning: Max recording duration reached (\(maxRecordingDuration)s). Stopping data collection.")
+                // Mark as full to avoid repeated printing (by incrementing once passed limit if checking == otherwise)
+                // But simplified: just won't append.
+            }
+            return
+        }
+        
         guard let channelData = buffer.floatChannelData?[0] else { return }
         let frameLength = Int(buffer.frameLength)
         
         for i in 0..<frameLength {
-            recordedData.append(channelData[i])
+            dataQueue.async { [weak self] in
+                guard let self = self else { return }
+                // Re-check safety limit inside queue
+                if self.recordedData.count < self.maxSampleCount {
+                    self.recordedData.append(channelData[i])
+                }
+            }
         }
     }
     

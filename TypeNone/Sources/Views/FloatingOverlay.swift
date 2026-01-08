@@ -116,6 +116,35 @@ struct OverlayContentView: View {
         .padding(.vertical, 8)
         // No background at all, just content
         .frame(width: 300, height: 60)
+        .frame(width: 300, height: 60)
+        .overlay(alignment: .trailing) {
+            Button {
+                // Toggle lock/unlock
+                if appState.isRecording {
+                    HotkeyManager.shared.stopRecording()
+                } else {
+                    HotkeyManager.shared.startRecording()
+                }
+            } label: {
+                Image(systemName: appState.isRecording ? "lock.fill" : "lock.open")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .padding(8)
+                    .background(Color.white.opacity(0.1))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 16)
+            .help(appState.isRecording ? "Stop Recording" : "Start Recording (Lock)")
+        }
+        .overlay(alignment: .bottom) {
+             if !appState.isRecording && appState.modelLoaded {
+                 Text("Tap to lock · Hold to record")
+                     .font(.system(size: 10))
+                     .foregroundStyle(.white.opacity(0.5))
+                     .padding(.bottom, 4)
+             }
+        }
     }
 }
 

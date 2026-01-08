@@ -39,55 +39,67 @@ struct GeneralSettingsView: View {
         Form {
             Section {
                 // Keyboard shortcut configuration
-                HStack {
-                    Text("Activation Shortcut")
-                    Spacer()
-                    
-                    Picker("Modifier", selection: $selectedModifier) {
-                        ForEach(ModifierOption.allCases) { option in
-                            Text(option.displayName).tag(option)
-                        }
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Label("Activation Shortcut", systemImage: "keyboard")
+                            .font(.headline)
+                        Spacer()
                     }
-                    .frame(width: 100)
                     
-                    Text("+")
-                    
-                    Picker("Key", selection: $selectedKey) {
-                        ForEach(KeyOption.allCases) { option in
-                            Text(option.displayName).tag(option)
+                    HStack(spacing: 8) {
+                        Picker("", selection: $selectedModifier) {
+                            ForEach(ModifierOption.allCases) { option in
+                                Text(option.displayName).tag(option)
+                            }
                         }
+                        .labelsHidden()
+                        .frame(width: 120)
+                        
+                        Text("+")
+                            .foregroundStyle(.secondary)
+                        
+                        Picker("", selection: $selectedKey) {
+                            ForEach(KeyOption.allCases) { option in
+                                Text(option.displayName).tag(option)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 100)
                     }
-                    .frame(width: 80)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    Text("Press and hold to record, release to transcribe.\nTap quickly to lock recording.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .onChange(of: selectedModifier) { _, _ in
-                    updateHotkey()
-                }
-                .onChange(of: selectedKey) { _, _ in
-                    updateHotkey()
+                .padding(.vertical, 4)
+            }
+            
+            Section {
+                Toggle(isOn: $appState.autoPasteEnabled) {
+                    Label {
+                        Text("Auto-paste transcription")
+                        Text("Paste directly into active application")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } icon: {
+                        Image(systemName: "doc.on.clipboard")
+                    }
                 }
                 
-                Text("Press and hold this shortcut to record, release to transcribe")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Toggle(isOn: $appState.showWaveform) {
+                    Label("Show waveform", systemImage: "waveform")
+                }
             }
             
             Section {
-                Toggle("Auto-paste transcription", isOn: $appState.autoPasteEnabled)
-                
-                Text("Automatically paste the transcription to the active text field")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            
-            Section {
-                Toggle("Show waveform during recording", isOn: $appState.showWaveform)
-            }
-            
-            Section {
-                Toggle("Launch at login", isOn: $launchAtLogin)
-                    .onChange(of: launchAtLogin) { _, newValue in
-                        setLaunchAtLogin(newValue)
-                    }
+                Toggle(isOn: $launchAtLogin) {
+                    Label("Launch at login", systemImage: "arrow.up.circle")
+                }
+                .onChange(of: launchAtLogin) { _, newValue in
+                    setLaunchAtLogin(newValue)
+                }
             }
         }
         .formStyle(.grouped)
@@ -190,29 +202,21 @@ struct TranscriptionSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Picker("Model", selection: $appState.selectedModel) {
-                    ForEach(WhisperModel.allCases) { model in
-                        VStack(alignment: .leading) {
-                            Text(model.displayName)
-                            Text(model.description)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        .tag(model)
-                    }
-                }
-                
                 if !appState.modelLoaded {
                     HStack {
-                        Text("Loading model...")
+                        Text("Loading Medium Model...")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         ProgressView(value: appState.modelLoadingProgress)
                             .progressViewStyle(.linear)
                     }
+                } else {
+                    Text("Model: Medium (Balanced)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             } header: {
-                Text("Model")
+                Text("Model Status")
             }
             
             Section {

@@ -3,6 +3,7 @@ import SwiftUI
 /// The menu bar dropdown view
 struct MenuBarView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.openWindow) var openWindow
     @State private var isHoveringQuit = false
     
     var body: some View {
@@ -169,14 +170,27 @@ struct MenuBarView: View {
             .buttonStyle(.plain)
             .frame(maxWidth: .infinity, alignment: .leading)
             
-            Button {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-            } label: {
-                Label("Preferences...", systemImage: "gear")
+            if #available(macOS 14.0, *) {
+                Button {
+                    NSApp.activate(ignoringOtherApps: true)
+                    openWindow(id: "settings")
+                } label: {
+                    Label("Preferences...", systemImage: "gear")
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .keyboardShortcut(",", modifiers: .command)
+            } else {
+                Button {
+                    NSApp.activate(ignoringOtherApps: true)
+                    openWindow(id: "settings")
+                } label: {
+                    Label("Preferences...", systemImage: "gear")
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .keyboardShortcut(",", modifiers: .command)
             }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .keyboardShortcut(",", modifiers: .command)
             
             Divider()
             

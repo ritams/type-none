@@ -72,6 +72,10 @@ class HotkeyManager: ObservableObject {
     private var isLockedMode = false
     
     /// Called when hotkey is pressed down
+    func startRecording() {
+        handleKeyDown()
+    }
+
     private func handleKeyDown() {
         initializeServices()
         
@@ -140,6 +144,10 @@ class HotkeyManager: ObservableObject {
     }
     
     /// Stop recording and process the audio
+    func stopRecording() {
+        stopAndTranscribe()
+    }
+    
     private func stopAndTranscribe() {
         let appState = AppState.shared
         isLockedMode = false

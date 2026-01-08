@@ -26,8 +26,8 @@ struct TypeNoneApp: App {
         }
         .menuBarExtraStyle(.window)
         
-        // Settings window
-        Settings {
+        // Settings window (using Window instead of Settings for better control in accessory app)
+        Window("Settings", id: "settings") {
             SettingsView()
                 .environmentObject(appState)
                 .alert("Permission Required", isPresented: $showingPermissionAlert) {
@@ -41,6 +41,7 @@ struct TypeNoneApp: App {
                     Text("Type None needs Accessibility permissions to paste text into other applications. Please grant access in System Settings.")
                 }
         }
+        .windowResizability(.contentSize)
     }
     
     private func checkPermissions() {

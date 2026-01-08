@@ -1,5 +1,7 @@
 import Foundation
 import SwiftWhisper
+import CryptoKit
+import Combine
 
 /// Service for transcribing audio using Whisper
 @MainActor
@@ -13,7 +15,6 @@ class TranscriptionService: NSObject, WhisperDelegate {
     var onNewSegments: (([Segment]) -> Void)?
     
     // Model file paths
-    private let modelFileName = "ggml-medium.bin"
     private var modelDirectory: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let typeNoneDir = appSupport.appendingPathComponent("TypeNone", isDirectory: true)
@@ -21,13 +22,20 @@ class TranscriptionService: NSObject, WhisperDelegate {
     }
     
     private var modelPath: URL {
-        modelDirectory.appendingPathComponent(modelFileName)
+        modelDirectory.appendingPathComponent(AppState.shared.modelName)
     }
+    
+    private var cancellables = Set<AnyCancellable>()
     
     override init() {
         super.init()
         // Start loading the model in background
         loadModelAsync()
+        
+        // Observe model changes
+
+        
+        // Just verify/load once on startup
     }
     
     /// Check if model file exists
@@ -46,18 +54,26 @@ class TranscriptionService: NSObject, WhisperDelegate {
     
     /// Download the Whisper model
     func downloadModel() async throws {
+        // Simplified: Use fixed Medium model
+        let modelName = AppState.shared.modelName
+        let modelURL = AppState.shared.modelUrl
+        
         // Create model directory if needed
         try FileManager.default.createDirectory(at: modelDirectory, withIntermediateDirectories: true)
         
-        let modelURL = URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin")!
+        print("Downloading \(modelName)...")
+        
+        let downloader = ModelDownloader()
         
         // Download with progress
-        let (tempURL, response) = try await URLSession.shared.download(from: modelURL, delegate: nil)
-        
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
-            throw TranscriptionError.modelDownloadFailed("Server returned error")
+        let tempURL = try await downloader.download(from: modelURL) { progress in
+            Task { @MainActor in
+                // Download phase is 0% -> 50%
+                AppState.shared.modelLoadingProgress = progress * 0.5
+            }
         }
+        
+        // Skip integrity check as requested by user to simplify
         
         // Move to final location
         if FileManager.default.fileExists(atPath: modelPath.path) {
@@ -68,6 +84,47 @@ class TranscriptionService: NSObject, WhisperDelegate {
         print("Model downloaded to: \(modelPath.path)")
     }
     
+    // Internal helper for downloading with progress
+    private class ModelDownloader: NSObject, URLSessionDownloadDelegate {
+        private var continuation: CheckedContinuation<URL, Error>?
+        private var progressHandler: ((Double) -> Void)?
+        
+        func download(from url: URL, progress: @escaping (Double) -> Void) async throws -> URL {
+            self.progressHandler = progress
+            
+            return try await withCheckedThrowingContinuation { continuation in
+                self.continuation = continuation
+                let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
+                let task = session.downloadTask(with: url)
+                task.resume()
+            }
+        }
+        
+        func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+            // Move to a temporary location that persists after function return
+            let tempDir = FileManager.default.temporaryDirectory
+            let tempFile = tempDir.appendingPathComponent(UUID().uuidString)
+            
+            do {
+                try FileManager.default.moveItem(at: location, to: tempFile)
+                continuation?.resume(returning: tempFile)
+            } catch {
+                continuation?.resume(throwing: error)
+            }
+        }
+        
+        func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+            let progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+            progressHandler?(progress)
+        }
+        
+        func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
+            if let error = error {
+                continuation?.resume(throwing: error)
+            }
+        }
+    }
+    
     /// Load the Whisper model asynchronously
     private func loadModelAsync() {
         modelLoadingTask = Task {
@@ -75,9 +132,10 @@ class TranscriptionService: NSObject, WhisperDelegate {
                 // Check if model exists, if not download it
                 if !isModelDownloaded() {
                     await MainActor.run {
+                        AppState.shared.modelLoaded = false
                         AppState.shared.modelLoadingProgress = 0.01
                     }
-                    print("Downloading Whisper medium model...")
+                    print("Downloading Whisper model...")
                     try await downloadModel()
                 }
                 
@@ -189,6 +247,7 @@ enum TranscriptionError: Error, LocalizedError {
     case modelDownloadFailed(String)
     case invalidAudioFormat
     case transcriptionFailed(String)
+    case integrityCheckFailed
     
     var errorDescription: String? {
         switch self {
@@ -200,6 +259,8 @@ enum TranscriptionError: Error, LocalizedError {
             return "Invalid audio format provided"
         case .transcriptionFailed(let reason):
             return "Transcription failed: \(reason)"
+        case .integrityCheckFailed:
+            return "Model file integrity check failed."
         }
     }
 }
